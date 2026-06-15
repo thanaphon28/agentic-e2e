@@ -6,6 +6,7 @@ import { runInitCommand } from "./commands/init.js";
 import { runScanCommand } from "./commands/scan.js";
 import { runGenerateCommand } from "./commands/generate.js";
 import { runTestCommand } from "./commands/run.js";
+import { runReportCommand } from "./commands/report.js";
 
 const program = new Command();
 
@@ -85,6 +86,23 @@ program
             debug: Boolean(options.debug),
             ui: Boolean(options.ui),
         });
+    });
+
+program
+    .command("report")
+    .description("Run Playwright tests and generate Agentic E2E report")
+    .action(async () => {
+        try {
+            await runReportCommand();
+        } catch (error) {
+            console.error(pc.red("Failed to generate report"));
+
+            if (error instanceof Error) {
+                console.error(pc.red(error.message));
+            }
+
+            process.exit(1);
+        }
     });
 
 program.parse();
