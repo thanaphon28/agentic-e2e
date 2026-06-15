@@ -4,6 +4,7 @@ import pc from "picocolors";
 
 type GenerateOptions = {
   force: boolean;
+  silentSkip?: boolean;
 };
 
 type RoutesJson = {
@@ -41,7 +42,10 @@ export async function runGenerateCommand(options: GenerateOptions) {
     const filePath = path.join(outputDir, fileName);
 
     if ((await fs.pathExists(filePath)) && !options.force) {
-      console.log(pc.yellow(`Skipped existing file: ${path.relative(cwd, filePath)}`));
+      if (!options.silentSkip) {
+        console.log(pc.yellow(`Skipped existing file: ${path.relative(cwd, filePath)}`));
+      }
+
       continue;
     }
 
@@ -57,7 +61,12 @@ export async function runGenerateCommand(options: GenerateOptions) {
   console.log("");
 
   if (generatedFiles.length === 0) {
-    console.log(pc.yellow("No files generated. Use --force to overwrite existing files."));
+    if (options.silentSkip) {
+      console.log(pc.yellow("No new tests generated. Existing generated tests were kept."));
+    } else {
+      console.log(pc.yellow("No files generated. Use --force to overwrite existing files."));
+    }
+
     console.log("");
     return;
   }
