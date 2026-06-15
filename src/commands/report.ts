@@ -2,6 +2,11 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import fs from "fs-extra";
 import pc from "picocolors";
+import { loadConfig } from "../config/load-config.js";
+
+type ReportCommandOptions = {
+  exitOnFail?: boolean;
+};
 
 type CommandResult = {
   stdout: string;
@@ -14,6 +19,7 @@ type TestResult = {
   file: string;
   status: string;
   durationMs: number;
+  errorMessage?: string;
 };
 
 type ReportSummary = {
@@ -28,14 +34,11 @@ type ReportSummary = {
   tests: TestResult[];
 };
 
-type ReportCommandOptions = {
-  exitOnFail?: boolean;
-};
-
 export async function runReportCommand(options: ReportCommandOptions = {}) {
   const cwd = process.cwd();
+  const config = await loadConfig(cwd);
 
-  const reportsDir = path.join(cwd, ".agentic-e2e", "reports");
+  const reportsDir = path.join(cwd, config.reportsDir);
   const rawJsonPath = path.join(reportsDir, "latest.raw.json");
   const summaryJsonPath = path.join(reportsDir, "latest.json");
   const markdownPath = path.join(reportsDir, "latest.md");
@@ -47,11 +50,13 @@ export async function runReportCommand(options: ReportCommandOptions = {}) {
   console.log(pc.cyan("Running: npx playwright test --reporter=json"));
   console.log("");
 
-  const result = await runCommandCapture("npx", [
-    "playwright",
-    "test",
-    "--reporter=json",
-  ]);
+  const result = await runCommandCapture(
+    "npx",
+    ["playwright", "test", "--reporter=json"],
+    {
+      E2E_BASE_URL: config.baseUrl,
+    }
+  );
 
   await fs.writeFile(rawJsonPath, result.stdout, "utf8");
 
@@ -65,7 +70,10 @@ export async function runReportCommand(options: ReportCommandOptions = {}) {
     playwrightJson = JSON.parse(result.stdout);
   } catch {
     throw new Error(
-      "Failed to parse Playwright JSON report. Check .agentic-e2e/reports/latest.raw.json"
+      `Failed to parse Playwright JSON report. Check ${path.relative(
+        cwd,
+        rawJsonPath
+      )}`
     );
   }
 
@@ -79,7 +87,11 @@ export async function runReportCommand(options: ReportCommandOptions = {}) {
   console.log(pc.green("Agentic E2E report completed."));
   console.log("");
 
-  console.log(`Status: ${summary.status === "passed" ? pc.green("PASSED") : pc.red("FAILED")}`);
+  console.log(
+    `Status: ${
+      summary.status === "passed" ? pc.green("PASSED") : pc.red("FAILED")
+    }`
+  );
   console.log(`Total: ${summary.total}`);
   console.log(`Passed: ${summary.passed}`);
   console.log(`Failed: ${summary.failed}`);
@@ -89,12 +101,12 @@ export async function runReportCommand(options: ReportCommandOptions = {}) {
   console.log("");
 
   console.log(pc.cyan("Saved:"));
-  console.log("- .agentic-e2e/reports/latest.raw.json");
-  console.log("- .agentic-e2e/reports/latest.json");
-  console.log("- .agentic-e2e/reports/latest.md");
+  console.log(`- ${path.relative(cwd, rawJsonPath)}`);
+  console.log(`- ${path.relative(cwd, summaryJsonPath)}`);
+  console.log(`- ${path.relative(cwd, markdownPath)}`);
 
   if (result.stderr.trim()) {
-    console.log("- .agentic-e2e/reports/latest.stderr.txt");
+    console.log(`- ${path.relative(cwd, stderrPath)}`);
   }
 
   console.log("");
@@ -106,12 +118,19 @@ export async function runReportCommand(options: ReportCommandOptions = {}) {
   return summary;
 }
 
-function runCommandCapture(command: string, args: string[]): Promise<CommandResult> {
+function runCommandCapture(
+  command: string,
+  args: string[],
+  extraEnv: Record<string, string> = {}
+): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: process.cwd(),
       shell: true,
-      env: process.env,
+      env: {
+        ...process.env,
+        ...extraEnv,
+      },
     });
 
     let stdout = "";
@@ -158,7 +177,7 @@ function createSummary(playwrightJson: unknown, exitCode: number): ReportSummary
 
   const durationMs = Number(
     data.stats?.duration ??
-    tests.reduce((total, test) => total + test.durationMs, 0)
+      tests.reduce((total, test) => total + test.durationMs, 0)
   );
 
   const status = exitCode === 0 && failed === 0 ? "passed" : "failed";
@@ -184,13 +203,15 @@ function collectTests(suites: any[]): TestResult[] {
 
     for (const spec of suite.specs ?? []) {
       for (const test of spec.tests ?? []) {
-        const lastResult = test.results?.[test.results.length - 1];
+        const testResults = test.results ?? [];
+        const lastResult = testResults[testResults.length - 1];
 
         results.push({
           title: spec.title ?? test.title ?? "Unknown test",
           file: spec.file ?? suiteFile,
           status: lastResult?.status ?? "unknown",
           durationMs: Number(lastResult?.duration ?? 0),
+          errorMessage: extractErrorMessage(lastResult),
         });
       }
     }
@@ -199,6 +220,20 @@ function collectTests(suites: any[]): TestResult[] {
   }
 
   return results;
+}
+
+function extractErrorMessage(result: any) {
+  const errors = result?.errors ?? [];
+
+  if (errors.length > 0 && errors[0]?.message) {
+    return cleanAnsi(errors[0].message);
+  }
+
+  if (result?.error?.message) {
+    return cleanAnsi(result.error.message);
+  }
+
+  return "";
 }
 
 function createMarkdownReport(summary: ReportSummary) {
@@ -232,6 +267,13 @@ function createMarkdownReport(summary: ReportSummary) {
       lines.push(`  - File: ${test.file}`);
       lines.push(`  - Status: ${test.status}`);
       lines.push("");
+
+      if (test.errorMessage) {
+        lines.push("  ```txt");
+        lines.push(indent(test.errorMessage.trim(), "  "));
+        lines.push("  ```");
+        lines.push("");
+      }
     }
   }
 
@@ -242,7 +284,9 @@ function createMarkdownReport(summary: ReportSummary) {
 
   for (const test of summary.tests) {
     lines.push(
-      `| ${statusIcon(test.status)} ${test.status} | ${escapeMarkdown(test.title)} | ${test.file} | ${formatDuration(test.durationMs)} |`
+      `| ${statusIcon(test.status)} ${test.status} | ${escapeMarkdown(
+        test.title
+      )} | ${test.file} | ${formatDuration(test.durationMs)} |`
     );
   }
 
@@ -269,4 +313,15 @@ function formatDuration(ms: number) {
 
 function escapeMarkdown(value: string) {
   return value.replace(/\|/g, "\\|");
+}
+
+function cleanAnsi(value: string) {
+  return value.replace(/\u001b\[[0-9;]*m/g, "");
+}
+
+function indent(value: string, prefix: string) {
+  return value
+    .split("\n")
+    .map((line) => `${prefix}${line}`)
+    .join("\n");
 }

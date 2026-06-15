@@ -104,9 +104,15 @@ function createAgenticConfig(baseUrl: string) {
   framework: "nextjs",
   baseUrl: "${baseUrl}",
   testDir: "tests/e2e",
+  generatedDir: "tests/e2e/generated",
+  reportsDir: ".agentic-e2e/reports",
+  healDir: ".agentic-e2e/heal",
   runner: "playwright",
   agent: {
     mode: "review-before-write"
+  },
+  check: {
+    heal: true
   }
 };
 `;

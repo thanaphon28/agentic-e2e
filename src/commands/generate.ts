@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "fs-extra";
 import pc from "picocolors";
+import { loadConfig } from "../config/load-config.js";
 
 type GenerateOptions = {
   force: boolean;
@@ -16,6 +17,8 @@ type RoutesJson = {
 
 export async function runGenerateCommand(options: GenerateOptions) {
   const cwd = process.cwd();
+  const config = await loadConfig(cwd);
+
 
   const routesPath = path.join(cwd, ".agentic-e2e", "routes.json");
 
@@ -31,7 +34,7 @@ export async function runGenerateCommand(options: GenerateOptions) {
     throw new Error("No routes found in .agentic-e2e/routes.json.");
   }
 
-  const outputDir = path.join(cwd, "tests", "e2e", "generated");
+  const outputDir = path.join(cwd, config.generatedDir);
 
   await fs.ensureDir(outputDir);
 

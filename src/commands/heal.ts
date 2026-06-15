@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "fs-extra";
 import pc from "picocolors";
+import { loadConfig } from "../config/load-config.js";
 
 type HealFinding = {
   title: string;
@@ -21,18 +22,17 @@ type HealReport = {
 
 export async function runHealCommand() {
   const cwd = process.cwd();
+  const config = await loadConfig(cwd);
 
   const rawReportPath = path.join(
     cwd,
-    ".agentic-e2e",
-    "reports",
+    config.reportsDir,
     "latest.raw.json"
   );
 
   const summaryReportPath = path.join(
     cwd,
-    ".agentic-e2e",
-    "reports",
+    config.reportsDir,
     "latest.json"
   );
 
@@ -44,7 +44,7 @@ export async function runHealCommand() {
 
   const findings = await analyzeLatestReport(rawReportPath, summaryReportPath);
 
-  const healDir = path.join(cwd, ".agentic-e2e", "heal");
+  const healDir = path.join(cwd, config.healDir);
   const healJsonPath = path.join(healDir, "latest.json");
   const healMarkdownPath = path.join(healDir, "latest.md");
 
@@ -72,8 +72,8 @@ export async function runHealCommand() {
 
   console.log("");
   console.log(pc.cyan("Saved:"));
-  console.log("- .agentic-e2e/heal/latest.json");
-  console.log("- .agentic-e2e/heal/latest.md");
+  console.log(`- ${path.relative(cwd, healJsonPath)}`);
+  console.log(`- ${path.relative(cwd, healMarkdownPath)}`);
   console.log("");
 }
 
@@ -179,19 +179,18 @@ function diagnoseFailure(errorMessage: string): {
   const message = errorMessage.toLowerCase();
 
   if (
-    message.includes("locator") ||
-    message.includes("strict mode violation") ||
-    message.includes("to be visible") ||
-    message.includes("tobevisible") ||
-    message.includes("getbyrole") ||
-    message.includes("getbytext") ||
-    message.includes("getbylabel")
+    message.includes("net::") ||
+    message.includes("navigation") ||
+    message.includes("page.goto") ||
+    message.includes("err_connection") ||
+    message.includes("err_failed") ||
+    message.includes("connection_refused")
   ) {
     return {
-      kind: "locator",
+      kind: "navigation",
       confidence: "high",
       suggestion:
-        "This looks like a locator/assertion visibility issue. Check whether the element text, role, label, or test id changed. Prefer getByRole/getByLabel/getByTestId over fragile CSS selectors.",
+        "This looks like a navigation issue. Check baseURL, dev server status, route existence, redirects, and whether the page returns 404/500.",
     };
   }
 
@@ -209,17 +208,19 @@ function diagnoseFailure(errorMessage: string): {
   }
 
   if (
-    message.includes("net::") ||
-    message.includes("navigation") ||
-    message.includes("page.goto") ||
-    message.includes("err_connection") ||
-    message.includes("err_failed")
+    message.includes("locator") ||
+    message.includes("strict mode violation") ||
+    message.includes("to be visible") ||
+    message.includes("tobevisible") ||
+    message.includes("getbyrole") ||
+    message.includes("getbytext") ||
+    message.includes("getbylabel")
   ) {
     return {
-      kind: "navigation",
+      kind: "locator",
       confidence: "high",
       suggestion:
-        "This looks like a navigation issue. Check baseURL, dev server status, route existence, redirects, and whether the page returns 404/500.",
+        "This looks like a locator/assertion visibility issue. Check whether the element text, role, label, or test id changed. Prefer getByRole/getByLabel/getByTestId over fragile CSS selectors.",
     };
   }
 
