@@ -23,7 +23,8 @@
     "testing",
     "qa",
     "agent",
-    "nextjs"
+    "nextjs",
+    "cli"
   ],
   "author": "",
   "license": "MIT",
