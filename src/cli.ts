@@ -8,6 +8,7 @@ import { runGenerateCommand } from "./commands/generate.js";
 import { runTestCommand } from "./commands/run.js";
 import { runReportCommand } from "./commands/report.js";
 import { runHealCommand } from "./commands/heal.js";
+import { runCheckCommand } from "./commands/check.js";
 
 const program = new Command();
 
@@ -113,6 +114,29 @@ program
             await runHealCommand();
         } catch (error) {
             console.error(pc.red("Failed to analyze healing suggestions"));
+
+            if (error instanceof Error) {
+                console.error(pc.red(error.message));
+            }
+
+            process.exit(1);
+        }
+    });
+
+program
+    .command("check")
+    .alias("test")
+    .description("Scan routes, generate tests, run report, and analyze failures")
+    .option("-f, --force", "Overwrite generated test files")
+    .option("--no-heal", "Skip healing analysis")
+    .action(async (options) => {
+        try {
+            await runCheckCommand({
+                force: Boolean(options.force),
+                heal: options.heal !== false,
+            });
+        } catch (error) {
+            console.error(pc.red("Agentic E2E check failed"));
 
             if (error instanceof Error) {
                 console.error(pc.red(error.message));

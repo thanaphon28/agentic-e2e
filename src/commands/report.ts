@@ -28,7 +28,11 @@ type ReportSummary = {
   tests: TestResult[];
 };
 
-export async function runReportCommand() {
+type ReportCommandOptions = {
+  exitOnFail?: boolean;
+};
+
+export async function runReportCommand(options: ReportCommandOptions = {}) {
   const cwd = process.cwd();
 
   const reportsDir = path.join(cwd, ".agentic-e2e", "reports");
@@ -95,9 +99,11 @@ export async function runReportCommand() {
 
   console.log("");
 
-  if (summary.status === "failed") {
+  if (summary.status === "failed" && options.exitOnFail !== false) {
     process.exit(1);
   }
+
+  return summary;
 }
 
 function runCommandCapture(command: string, args: string[]): Promise<CommandResult> {
@@ -152,7 +158,7 @@ function createSummary(playwrightJson: unknown, exitCode: number): ReportSummary
 
   const durationMs = Number(
     data.stats?.duration ??
-      tests.reduce((total, test) => total + test.durationMs, 0)
+    tests.reduce((total, test) => total + test.durationMs, 0)
   );
 
   const status = exitCode === 0 && failed === 0 ? "passed" : "failed";
