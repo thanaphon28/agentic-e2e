@@ -7,6 +7,7 @@ import { runScanCommand } from "./commands/scan.js";
 import { runGenerateCommand } from "./commands/generate.js";
 import { runTestCommand } from "./commands/run.js";
 import { runReportCommand } from "./commands/report.js";
+import { runHealCommand } from "./commands/heal.js";
 
 const program = new Command();
 
@@ -96,6 +97,22 @@ program
             await runReportCommand();
         } catch (error) {
             console.error(pc.red("Failed to generate report"));
+
+            if (error instanceof Error) {
+                console.error(pc.red(error.message));
+            }
+
+            process.exit(1);
+        }
+    });
+program
+    .command("heal")
+    .description("Analyze latest E2E report and suggest fixes")
+    .action(async () => {
+        try {
+            await runHealCommand();
+        } catch (error) {
+            console.error(pc.red("Failed to analyze healing suggestions"));
 
             if (error instanceof Error) {
                 console.error(pc.red(error.message));
