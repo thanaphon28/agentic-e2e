@@ -1,0 +1,44 @@
+{
+  "name": "agentic-e2e",
+  "version": "0.1.0",
+  "description": "AI QA Agent CLI for generating E2E tests",
+  "type": "module",
+  "bin": {
+    "agentic-e2e": "./dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/cli.ts --format esm --target node18 --out-dir dist --clean",
+    "start": "node dist/cli.js",
+    "test:local": "npm run build && node dist/cli.js init",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "e2e",
+    "playwright",
+    "testing",
+    "qa",
+    "agent",
+    "nextjs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "fs-extra": "^11.3.5",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.9.3",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3"
+  }
+}
