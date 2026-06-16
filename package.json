@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsup src/cli.ts --format esm --target node18 --out-dir dist --clean",
     "start": "node dist/cli.js",
-    "test:local": "npm run build && node dist/cli.js init",
+    "test:local": "npm run build && node dist/cli.js --help",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -28,6 +28,14 @@
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thanaphon28/agentic-e2e.git"
+  },
+  "bugs": {
+    "url": "https://github.com/thanaphon28/agentic-e2e/issues"
+  },
+  "homepage": "https://github.com/thanaphon28/agentic-e2e#readme",
   "engines": {
     "node": ">=18"
   },
